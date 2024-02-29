@@ -1,5 +1,6 @@
 import requests
 import os
+import json
 
 # https://opendict.korean.go.kr/service/openApiInfo
 url = "https://opendict.korean.go.kr/api/search"
@@ -162,22 +163,26 @@ print(
 )
 param["cat"] = input("전문 분야를 고르세요 : ").replace(" ", "")
 
-result = requests.get(url, params=param)
-
 if not os.path.exists("result"):
     os.mkdir("result")
-filepath = (
-    "result/"
-    + str(param["q"])
-    + "_pos"
-    + str(param["pos"])
-    + "_region"
-    + str(param["region"])
-    + "_cat"
-    + str(param["cat"])
-    + "_page"
-    + str(param["start"])
-    + ".json"
-)
-with open(filepath, "w", encoding="utf-8") as f:
-    f.write(result.text)
+
+for start in range(1, 1001):
+    param["start"] = start
+    result = requests.get(url, params=param)
+    filepath = (
+        "result/"
+        + str(param["q"])
+        + "_pos"
+        + str(param["pos"])
+        + "_region"
+        + str(param["region"])
+        + "_cat"
+        + str(param["cat"])
+        + "_page"
+        + str(param["start"])
+        + ".json"
+    )
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(result.text)
+    if len(json.loads(result.text)["channel"]["item"]) < param["num"]:
+        break
