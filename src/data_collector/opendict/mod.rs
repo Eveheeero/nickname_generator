@@ -10,9 +10,8 @@ async fn search_opendict(
 ) -> Result<String, ()> {
     // https://opendict.korean.go.kr/service/openApiInfo
 
-    let url = "https://opendict.korean.go.kr/api/search";
-    let param = format!(
-        "key={}&q={}&req_type=json&start={}&num={}&method=include&advanced=y&pos={}&region={}&cat={}",
+    let url = format!(
+        "https://opendict.korean.go.kr/api/search?key={}&q={}&req_type=json&start={}&num={}&method=include&advanced=y&pos={}&region={}&cat={}",
         api_key.as_ref(),
         keyword.as_ref(),
         page,
@@ -23,9 +22,8 @@ async fn search_opendict(
     );
 
     let response = reqwest::Client::new()
-        .post(url)
+        .get(url)
         .header("User-Agent", "reqwest")
-        .body(param)
         .send()
         .await
         .ok()
@@ -58,6 +56,8 @@ enum Category {
 
 #[tokio::test]
 async fn test_search() -> Result<(), Box<dyn std::error::Error>> {
+    use std::str::FromStr;
+
     let key = std::fs::read_to_string("api_key.txt")?;
     let amount = 100;
 
@@ -65,9 +65,12 @@ async fn test_search() -> Result<(), Box<dyn std::error::Error>> {
 
     assert!(result.is_ok());
 
-    let result = serde_json::to_value(result.unwrap())?;
+    let result = serde_json::Value::from_str(&result.unwrap())?;
 
-    dbg!(result);
+    assert_eq!(
+        result["channel"]["item"].as_array().unwrap().len(),
+        amount as usize
+    );
 
     Ok(())
 }
