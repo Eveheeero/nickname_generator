@@ -24,6 +24,7 @@ async fn search_opendict(
 
     let response = reqwest::Client::new()
         .post(url)
+        .header("User-Agent", "reqwest")
         .body(param)
         .send()
         .await
