@@ -167,6 +167,7 @@ if not os.path.exists("result"):
     os.mkdir("result")
 
 for start in range(1, 1001):
+    print(f"{start}페이지 조회중...")
     param["start"] = start
     result = requests.get(url, params=param)
     filepath = (
@@ -184,5 +185,7 @@ for start in range(1, 1001):
     )
     with open(filepath, "w", encoding="utf-8") as f:
         f.write(result.text)
-    if len(json.loads(result.text)["channel"]["item"]) < param["num"]:
+    j = json.loads(result.text)
+    print(f"총 {len(j['channel']['item'])}개의 결과를 저장했습니다.")
+    if len(j["channel"]["item"]) < param["num"]:
         break
