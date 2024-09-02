@@ -114,6 +114,7 @@ fn string_to_result(s: impl AsRef<str>) -> Result<OpendictResult, ()> {
         }
 
         let syntactic_annotation = sense["syntacticAnnotation"].as_str().map(|x| x.to_owned());
+        let syntactic_argument = sense["syntacticArgument"].as_str().map(|x| x.to_owned());
         let definition = sense["definition"].as_str().ok_or(())?.to_owned();
         let code = sense["target_code"]
             .as_str()
@@ -128,6 +129,7 @@ fn string_to_result(s: impl AsRef<str>) -> Result<OpendictResult, ()> {
             if !matches!(
                 key.as_str(),
                 "syntacticAnnotation"
+                    | "syntacticArgument"
                     | "cat"
                     | "definition"
                     | "link"
@@ -143,6 +145,7 @@ fn string_to_result(s: impl AsRef<str>) -> Result<OpendictResult, ()> {
 
         result.data.push(OpendictData {
             syntactic_annotation,
+            syntactic_argument,
             word,
             definition,
             code,

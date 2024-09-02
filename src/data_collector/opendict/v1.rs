@@ -11,6 +11,7 @@ pub(crate) struct OpendictResult {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub(crate) struct OpendictData {
     pub(crate) syntactic_annotation: Option<String>,
+    pub(crate) syntactic_argument: Option<String>,
     pub(crate) word: String,
     pub(crate) definition: String,
     pub(crate) code: u32,
