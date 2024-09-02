@@ -3,14 +3,19 @@ use ratatui::{
     prelude::*,
     widgets,
 };
-use std::cell::{LazyCell, OnceCell};
+use std::collections::HashSet;
 
 #[derive(Debug)]
 struct TuiContext<'a> {
     tab_selected: usize,
-    opendict_searched: LazyCell<Vec<crate::data_collector::opendict::OpendictQuery>>,
-    opendict_select_list: OnceCell<widgets::List<'a>>,
-    opendict_select_selected: widgets::ListState,
+    opendict_searched: Vec<crate::data_collector::opendict::OpendictQuery>,
+    opendict_searched_word: Vec<String>,
+    opendict_select_cursor: u8,
+    opendict_select_word: widgets::List<'a>,
+    opendict_select_word_selected: widgets::ListState,
+    opendict_select_page_list: Option<Vec<u16>>,
+    opendict_select_page: Option<widgets::List<'a>>,
+    opendict_select_page_selected: widgets::ListState,
     opendict_select_data: Option<crate::data_collector::opendict::v1::OpendictResult>,
 }
 
@@ -66,15 +71,91 @@ pub(super) fn main() -> Result<(), Box<dyn std::error::Error>> {
                 0 => {}
                 1 => {}
                 2 => match key.code {
-                    KeyCode::Down => {
-                        ctx.opendict_select_selected.select_next();
+                    KeyCode::Right => {
+                        if ctx.opendict_select_cursor < 2 {
+                            ctx.opendict_select_cursor += 1;
+                        }
                     }
-                    KeyCode::Up => {
-                        ctx.opendict_select_selected.select_previous();
+                    KeyCode::Left => {
+                        if ctx.opendict_select_cursor > 0 {
+                            ctx.opendict_select_cursor -= 1;
+                        }
+                    }
+                    KeyCode::Down => match ctx.opendict_select_cursor {
+                        0 => {
+                            ctx.opendict_select_word_selected.select_next();
+                            ctx.clear_page_list();
+                        }
+                        1 => {
+                            ctx.opendict_select_page_selected.select_next();
+                        }
+                        2 => {}
+                        _ => unreachable!(),
+                    },
+                    KeyCode::Up => match ctx.opendict_select_cursor {
+                        0 => {
+                            ctx.opendict_select_word_selected.select_previous();
+                            ctx.clear_page_list();
+                        }
+                        1 => {
+                            ctx.opendict_select_page_selected.select_previous();
+                        }
+                        2 => {}
+                        _ => unreachable!(),
+                    },
+                    KeyCode::PageDown => {
+                        let repeat_count = 5;
+                        match ctx.opendict_select_cursor {
+                            0 => {
+                                for _ in 0..repeat_count {
+                                    ctx.opendict_select_word_selected.select_next();
+                                }
+                                ctx.clear_page_list();
+                            }
+                            1 => {
+                                for _ in 0..repeat_count {
+                                    ctx.opendict_select_page_selected.select_next();
+                                }
+                            }
+                            2 => {}
+                            _ => unreachable!(),
+                        }
+                    }
+                    KeyCode::PageUp => {
+                        let repeat_count = 5;
+                        match ctx.opendict_select_cursor {
+                            0 => {
+                                for _ in 0..repeat_count {
+                                    ctx.opendict_select_word_selected.select_previous();
+                                }
+                                ctx.clear_page_list();
+                            }
+                            1 => {
+                                for _ in 0..repeat_count {
+                                    ctx.opendict_select_page_selected.select_previous();
+                                }
+                            }
+                            2 => {}
+                            _ => unreachable!(),
+                        }
                     }
                     KeyCode::Enter => {
-                        if let Some(selected) = ctx.opendict_select_selected.selected() {
-                            let query = ctx.opendict_searched.get(selected).unwrap();
+                        let selected_word = ctx.opendict_select_word_selected.selected();
+                        let selected_page = ctx.opendict_select_page_selected.selected();
+                        if let (Some(selected_word), Some(selected_page)) =
+                            (selected_word, selected_page)
+                        {
+                            let selected_word =
+                                ctx.opendict_searched_word.get(selected_word).unwrap();
+                            let selected_page =
+                                ctx.opendict_select_page_list.as_ref().unwrap()[selected_page];
+                            let query = ctx
+                                .opendict_searched
+                                .iter()
+                                .find(|query| {
+                                    query.keyword == *selected_word && query.page == selected_page
+                                })
+                                .unwrap();
                             let data = crate::prelude::get_opendict_data(query);
                             ctx.opendict_select_data = data;
                         }
@@ -90,32 +171,67 @@ pub(super) fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn opendict_select(frame: &mut Frame, area: Rect, ctx: &mut TuiContext) {
-    let searched_string = ctx.opendict_select_list.get_or_init(|| {
-        ctx.opendict_searched
-            .iter()
-            .map(|query| format!("{} {:3}페이지", query.keyword, query.page))
-            .collect::<widgets::List>()
-            .block(widgets::Block::bordered())
-            .highlight_style(Style::default().yellow())
-    });
+fn opendict_select(frame: &mut Frame, mut area: Rect, ctx: &mut TuiContext) {
     let list_area = Rect {
         x: area.x,
         y: area.y,
-        width: 14,
+        width: 4,
         height: area.height,
     };
-    let area = Rect {
-        x: area.x + 15,
+    area = Rect {
+        x: area.x + 5,
         y: area.y,
-        width: area.width - 15,
+        width: area.width - 5,
         height: area.height,
     };
     frame.render_stateful_widget(
-        searched_string,
+        &ctx.opendict_select_word,
         list_area,
-        &mut ctx.opendict_select_selected,
+        &mut ctx.opendict_select_word_selected,
     );
+
+    if ctx.opendict_select_page.is_none() && ctx.opendict_select_word_selected.selected().is_some()
+    {
+        let selected_word = ctx.opendict_select_word_selected.selected().unwrap();
+        let selected_word = ctx.opendict_searched_word.get(selected_word).unwrap();
+        let mut pages = ctx
+            .opendict_searched
+            .iter()
+            .filter(|query| query.keyword == *selected_word)
+            .map(|x| x.page)
+            .collect::<Vec<_>>();
+        pages.sort();
+        ctx.opendict_select_page = Some(
+            pages
+                .iter()
+                .map(|page| format!("{:03}페이지", page))
+                .collect::<widgets::List>()
+                .block(widgets::Block::bordered())
+                .highlight_style(Style::default().yellow()),
+        );
+        ctx.opendict_select_page_list = Some(pages);
+    }
+
+    if ctx.opendict_select_word_selected.selected().is_some() {
+        let list_area = Rect {
+            x: area.x,
+            y: area.y,
+            width: 11,
+            height: area.height,
+        };
+        area = Rect {
+            x: area.x + 12,
+            y: area.y,
+            width: area.width - 12,
+            height: area.height,
+        };
+        frame.render_stateful_widget(
+            ctx.opendict_select_page.as_ref().unwrap(),
+            list_area,
+            &mut ctx.opendict_select_page_selected,
+        );
+    }
+
     if let Some(data) = &ctx.opendict_select_data {
         let data = format!("{:#?}", data);
         let data = widgets::Paragraph::new(data).block(widgets::Block::bordered());
@@ -125,11 +241,29 @@ fn opendict_select(frame: &mut Frame, area: Rect, ctx: &mut TuiContext) {
 
 impl<'a> Default for TuiContext<'a> {
     fn default() -> Self {
+        let opendict_searched = crate::prelude::get_opendict_saved_queries();
+        let opendict_searched_word = opendict_searched
+            .iter()
+            .map(|query| query.keyword.clone())
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        let opendict_select_word = opendict_searched_word
+            .iter()
+            .cloned()
+            .collect::<widgets::List>()
+            .block(widgets::Block::bordered())
+            .highlight_style(Style::default().yellow());
         Self {
             tab_selected: 0,
-            opendict_searched: LazyCell::new(|| crate::prelude::get_opendict_saved_queries()),
-            opendict_select_list: OnceCell::new(),
-            opendict_select_selected: widgets::ListState::default(),
+            opendict_searched,
+            opendict_searched_word,
+            opendict_select_cursor: 0,
+            opendict_select_word,
+            opendict_select_word_selected: widgets::ListState::default(),
+            opendict_select_page_list: None,
+            opendict_select_page: None,
+            opendict_select_page_selected: widgets::ListState::default(),
             opendict_select_data: None,
         }
     }
@@ -148,5 +282,10 @@ impl<'a> TuiContext<'a> {
             self.tab_selected = Self::MAX_TAB - 1;
         }
         self.tab_selected -= 1;
+    }
+    fn clear_page_list(&mut self) {
+        self.opendict_select_page_list.take();
+        self.opendict_select_page.take();
+        self.opendict_select_page_selected.select(None);
     }
 }
