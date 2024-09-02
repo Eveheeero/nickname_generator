@@ -24,7 +24,7 @@ pub(crate) struct OpendictQuery {
 pub(crate) async fn search_opendict(query: &OpendictQuery) -> Result<OpendictResult, ()> {
     // https://opendict.korean.go.kr/service/openApiInfo
 
-    tracing::info!("{}키워드 {}페이지 검색중", query.keyword, query.page);
+    tracing::info!("\"{}\" {}페이지 검색중", query.keyword, query.page);
     let OpendictQuery {
         keyword,
         page,
@@ -110,7 +110,7 @@ fn string_to_result(s: impl AsRef<str>) -> Result<OpendictResult, ()> {
         let word = item["word"].as_str().ok_or(())?.to_owned();
         let sense = &item["sense"][0];
         if item["sense"].as_array().ok_or(())?.len() != 1 {
-            assert!(false);
+            panic!("sense가 1개가 아닙니다.");
         }
         let definition = sense["definition"].as_str().ok_or(())?.to_owned();
         let code = sense["target_code"]
@@ -121,12 +121,30 @@ fn string_to_result(s: impl AsRef<str>) -> Result<OpendictResult, ()> {
             .ok_or(())?;
         let r#type = sense["type"].as_str().ok_or(())?.to_owned();
         let pos = sense["pos"].as_str().ok_or(())?.to_owned();
+        let origin = sense["origin"].as_str().map(|x| x.to_owned());
+        for key in sense.as_object().ok_or(())?.keys() {
+            if !matches!(
+                key.as_str(),
+                "cat"
+                    | "definition"
+                    | "link"
+                    | "origin"
+                    | "sense_no"
+                    | "target_code"
+                    | "type"
+                    | "pos"
+            ) {
+                panic!("Unknown key: {}", key);
+            }
+        }
+
         result.data.push(OpendictData {
             word,
             definition,
             code,
             r#type,
             pos,
+            origin,
         });
     }
     Ok(result)

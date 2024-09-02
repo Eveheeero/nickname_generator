@@ -15,4 +15,5 @@ pub(crate) struct OpendictData {
     pub(crate) code: u32,
     pub(crate) r#type: String,
     pub(crate) pos: String,
+    pub(crate) origin: Option<String>,
 }
