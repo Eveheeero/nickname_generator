@@ -21,17 +21,23 @@ async fn search_opendict(
         category as u8
     );
 
-    let response = reqwest::Client::new()
-        .get(url)
+    let client = reqwest::Client::new();
+    let response = client
+        .get(&url)
         .header("User-Agent", "reqwest")
         .send()
         .await
         .ok()
-        .ok_or(())?
-        .text()
-        .await
-        .ok()
         .ok_or(())?;
+    if !response.status().is_success() {
+        tracing::error!(
+            "Failed to get response from opendict: {}",
+            response.status()
+        );
+        return Err(());
+    }
+    let response = response.text().await.ok().ok_or(())?;
+    tracing::trace!("Response from opendict: {}", response);
     Ok(response)
 }
 
@@ -57,6 +63,8 @@ enum Category {
 #[tokio::test]
 async fn test_search() -> Result<(), Box<dyn std::error::Error>> {
     use std::str::FromStr;
+
+    crate::prelude::init();
 
     let key = std::fs::read_to_string("api_key.txt")?;
     let amount = 100;
