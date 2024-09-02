@@ -316,25 +316,37 @@ pub(crate) fn get_next_query(mut query: OpendictQuery) -> OpendictQuery {
         panic!("키워드는 한 글자여야 합니다.");
     }
 
+    if query.page > 1000 {
+        return get_next_word_query(query);
+    }
+
     let searched = crate::prelude::get_opendict_data(&query);
     let Some(searched) = searched else {
         return query;
     };
 
     if searched.size != query.amount as u32 {
-        query.page = 1;
-        let now = query.keyword.chars().next().unwrap();
-        if now == '힣' {
-            query.keyword = "가".to_owned();
-        } else {
-            let next = now as u32 + 1;
-            query.keyword = std::char::from_u32(next).unwrap().to_string();
-        }
-        query
+        get_next_word_query(query)
     } else {
         query.page += 1;
+        if query.page > 1000 {
+            query = get_next_word_query(query);
+        }
         query
     }
+}
+
+fn get_next_word_query(query: OpendictQuery) -> OpendictQuery {
+    let mut query = query;
+    query.page = 1;
+    let now = query.keyword.chars().next().unwrap();
+    if now == '힣' {
+        query.keyword = "가".to_owned();
+    } else {
+        let next = now as u32 + 1;
+        query.keyword = std::char::from_u32(next).unwrap().to_string();
+    }
+    query
 }
 
 #[cfg(test)]
