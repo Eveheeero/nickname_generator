@@ -1,1 +1,1 @@
-pub(super) fn main() {}
+pub(super) async fn main() {}

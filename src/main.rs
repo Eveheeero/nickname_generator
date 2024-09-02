@@ -3,9 +3,6 @@ pub(crate) mod data_collector;
 mod init;
 pub(crate) mod prelude;
 use clap::Command;
-use once_cell::sync::Lazy;
-
-static DB: Lazy<sled::Db> = Lazy::new(|| sled::open(".nickname_generator").unwrap());
 
 #[tokio::main]
 async fn main() {
@@ -18,8 +15,8 @@ async fn main() {
         .get_matches();
 
     match arg.subcommand() {
-        Some(("init", _)) => init::main(),
-        Some(("crawl", _)) => crawl::main(),
+        Some(("init", _)) => init::main().await,
+        Some(("crawl", _)) => crawl::main().await,
         _ => unreachable!(),
     }
 }
