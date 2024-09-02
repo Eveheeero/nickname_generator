@@ -112,6 +112,8 @@ fn string_to_result(s: impl AsRef<str>) -> Result<OpendictResult, ()> {
         if item["sense"].as_array().ok_or(())?.len() != 1 {
             panic!("sense가 1개가 아닙니다.");
         }
+
+        let syntactic_annotation = sense["syntacticAnnotation"].as_str().map(|x| x.to_owned());
         let definition = sense["definition"].as_str().ok_or(())?.to_owned();
         let code = sense["target_code"]
             .as_str()
@@ -125,7 +127,8 @@ fn string_to_result(s: impl AsRef<str>) -> Result<OpendictResult, ()> {
         for key in sense.as_object().ok_or(())?.keys() {
             if !matches!(
                 key.as_str(),
-                "cat"
+                "syntacticAnnotation"
+                    | "cat"
                     | "definition"
                     | "link"
                     | "origin"
@@ -139,6 +142,7 @@ fn string_to_result(s: impl AsRef<str>) -> Result<OpendictResult, ()> {
         }
 
         result.data.push(OpendictData {
+            syntactic_annotation,
             word,
             definition,
             code,
