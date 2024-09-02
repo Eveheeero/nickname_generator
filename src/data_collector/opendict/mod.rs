@@ -84,6 +84,9 @@ async fn search_opendict(
         return Err(());
     }
     let response = response.text().await.ok().ok_or(())?;
+    if cfg!(debug_assertions) {
+        std::fs::write("opendict_response.json", &response).ok();
+    }
     tracing::trace!("Response from opendict: {}", response);
     string_to_result(response)
 }

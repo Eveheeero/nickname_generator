@@ -215,3 +215,4 @@ rust-project.json
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,rust,rust-analyzer,python
 /.nickname_generator
 /api_key.txt
+/opendict_response.json
