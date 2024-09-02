@@ -1,4 +1,6 @@
 pub(super) async fn main() {
+    crate::prelude::init();
+
     let query = crate::prelude::get_opendict_last_inserted();
     let mut query = if let Some(query) = query {
         crate::data_collector::opendict::get_next_query(query)

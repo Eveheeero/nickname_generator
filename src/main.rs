@@ -7,7 +7,6 @@ use clap::Command;
 
 #[tokio::main]
 async fn main() {
-    crate::prelude::init();
     let arg = clap::Command::new("Nickname Generator")
         .about("Nickname Generator")
         .subcommand(Command::new("init").about("Init Api Key"))

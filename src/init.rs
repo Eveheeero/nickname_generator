@@ -1,6 +1,8 @@
 use std::io::Write;
 
 pub(super) async fn main() {
+    crate::prelude::init();
+
     let opendict_key = crate::prelude::get_opendict_key();
     if let Some(opendict_key) = opendict_key {
         println!("Current api key: {}", opendict_key);

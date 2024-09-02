@@ -24,6 +24,7 @@ pub(crate) struct OpendictQuery {
 pub(crate) async fn search_opendict(query: &OpendictQuery) -> Result<OpendictResult, ()> {
     // https://opendict.korean.go.kr/service/openApiInfo
 
+    tracing::info!("{}키워드 {}페이지 검색중", query.keyword, query.page);
     let OpendictQuery {
         keyword,
         page,
