@@ -286,7 +286,7 @@ pub(crate) fn get_first_query() -> OpendictQuery {
 /// 해당 쿼리의 다음 쿼리를 반환합니다.
 /// 해당 쿼리에 대해 검색을 수행하지 않았으면 해당 쿼리를 반환합니다.
 pub(crate) fn get_next_query(mut query: OpendictQuery) -> OpendictQuery {
-    if query.keyword.len() != 1 {
+    if query.keyword.chars().count() != 1 {
         panic!("키워드는 한 글자여야 합니다.");
     }
 
