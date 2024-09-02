@@ -1,9 +1,25 @@
-mod data_collector;
+mod crawl;
+pub(crate) mod data_collector;
+mod init;
 pub(crate) mod prelude;
+use clap::Command;
 use once_cell::sync::Lazy;
 
 static DB: Lazy<sled::Db> = Lazy::new(|| sled::open(".nickname_generator").unwrap());
 
-fn main() {
-    println!("Hello, world!");
+#[tokio::main]
+async fn main() {
+    crate::prelude::init();
+    let arg = clap::Command::new("Nickname Generator")
+        .about("Nickname Generator")
+        .subcommand(Command::new("init").about("Init Api Key"))
+        .subcommand(Command::new("crawl").about("Crawl Dictionary"))
+        .subcommand_required(true)
+        .get_matches();
+
+    match arg.subcommand() {
+        Some(("init", _)) => init::main(),
+        Some(("crawl", _)) => crawl::main(),
+        _ => unreachable!(),
+    }
 }
