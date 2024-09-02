@@ -1,40 +1,40 @@
-use serde::{Deserialize, Serialize};
 use std::str::FromStr;
+pub(crate) mod v1;
+use v1::*;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct OpendictResult {
-    total: u32,
-    size: u32,
-    page: u32,
-    data: Vec<OpendictData>,
-    datetime: time::PrimitiveDateTime,
-}
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct OpendictData {
-    word: String,
-    definition: String,
-    code: u32,
-    r#type: String,
-    pos: String,
+/// 오픈사전 검색 키
+pub(crate) struct OpendictQuery {
+    /// 검색 키워드
+    pub(crate) keyword: String,
+    /// 페이지 번호, 1~1000
+    pub(crate) page: u16,
+    /// 한 페이지에 보여줄 결과 수, 최대 100
+    pub(crate) amount: u8,
+    /// 품사, 없으면 전체
+    pub(crate) pos: Vec<Pos>,
+    /// 방언 지역, 없으면 전체
+    pub(crate) region: Vec<Region>,
+    /// 전문 분야, 없으면 전체
+    pub(crate) category: Vec<Category>,
 }
 
 #[must_use]
-async fn search_opendict(
-    api_key: impl AsRef<str>,
-    keyword: impl AsRef<str>,
-    page: u16,             // 1~1000
-    amount: u8,            // 1~100
-    pos: &[Pos],           // 품사
-    region: &[Region],     // 방언 지역
-    category: &[Category], // 전문 분야
-) -> Result<OpendictResult, ()> {
+pub(crate) async fn search_opendict(query: OpendictQuery) -> Result<OpendictResult, ()> {
     // https://opendict.korean.go.kr/service/openApiInfo
 
+    let OpendictQuery {
+        keyword,
+        page,
+        amount,
+        pos,
+        region,
+        category,
+    } = query;
     let pos = if pos.is_empty() {
         "0".to_owned()
     } else {
         pos.into_iter()
-            .map(|x| format!("{}", *x as u8))
+            .map(|x| format!("{}", x as u8))
             .collect::<Vec<_>>()
             .join(",")
     };
@@ -43,7 +43,7 @@ async fn search_opendict(
     } else {
         region
             .into_iter()
-            .map(|x| format!("{}", *x as u8))
+            .map(|x| format!("{}", x as u8))
             .collect::<Vec<_>>()
             .join(",")
     };
@@ -52,15 +52,15 @@ async fn search_opendict(
     } else {
         category
             .into_iter()
-            .map(|x| format!("{}", *x as u8))
+            .map(|x| format!("{}", x as u8))
             .collect::<Vec<_>>()
             .join(",")
     };
 
     let url = format!(
         "https://opendict.korean.go.kr/api/search?key={}&q={}&req_type=json&start={}&num={}&method=include&advanced=y&pos={}&region={}&cat={}",
-        api_key.as_ref(),
-        keyword.as_ref(),
+        crate::prelude::get_opendict_key().expect("Opendict 키가 설정되지 않았습니다."),
+        keyword,
         page,
         amount,
         pos,
@@ -134,10 +134,11 @@ fn parse_datetime(s: impl AsRef<str>) -> Result<time::PrimitiveDateTime, ()> {
     result.ok().ok_or(())
 }
 
+/// 품사
 #[repr(u8)]
 #[derive(Copy, Clone)]
 #[allow(unused)]
-enum Pos {
+pub(crate) enum Pos {
     명사 = 1,
     대명사,
     수사,
@@ -166,10 +167,11 @@ enum Pos {
     대명사관형사,
     품사없음,
 }
+/// 방언 지역
 #[repr(u8)]
 #[derive(Copy, Clone)]
 #[allow(unused)]
-enum Region {
+pub(crate) enum Region {
     강원 = 1,
     경기,
     경남,
@@ -194,10 +196,11 @@ enum Region {
     중국흑룡강성,
     중앙아시아,
 }
+/// 전문 분야
 #[repr(u8)]
 #[derive(Copy, Clone)]
 #[allow(unused)]
-enum Category {
+pub(crate) enum Category {
     가톨릭 = 1,
     건설,
     경영,
@@ -267,20 +270,30 @@ enum Category {
     환경,
 }
 
-#[tokio::test]
-async fn test_search() -> Result<(), Box<dyn std::error::Error>> {
-    crate::prelude::init();
+#[cfg(test)]
+mod tests {
+    #[tokio::test]
+    async fn test_search() -> Result<(), Box<dyn std::error::Error>> {
+        crate::prelude::init();
 
-    let key = std::fs::read_to_string("api_key.txt")?;
-    let amount = 100;
+        let amount = 100;
+        let key = super::OpendictQuery {
+            keyword: "가".to_owned(),
+            page: 1,
+            amount,
+            pos: vec![],
+            region: vec![],
+            category: vec![],
+        };
 
-    let result = search_opendict(key, "가", 1, amount, &[], &[], &[]).await;
+        let result = super::search_opendict(key).await;
 
-    assert!(result.is_ok());
+        assert!(result.is_ok());
 
-    let result = result.unwrap();
+        let result = result.unwrap();
 
-    assert_eq!(result.size as usize, amount as usize);
+        assert_eq!(result.size as usize, amount as usize);
 
-    Ok(())
+        Ok(())
+    }
 }
