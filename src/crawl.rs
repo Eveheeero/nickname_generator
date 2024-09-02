@@ -8,13 +8,19 @@ pub(super) async fn main() {
         crate::data_collector::opendict::get_first_query()
     };
 
+    let mut failed_count = 0;
     loop {
         let data = crate::data_collector::opendict::search_opendict(&query).await;
         if let Ok(data) = data {
             crate::prelude::insert_opendict_data::<true>(&query, data);
             query = crate::data_collector::opendict::get_next_query(query);
+            failed_count = 0;
         } else {
-            break;
+            failed_count += 1;
+            if failed_count >= 10 {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_secs(3));
         }
     }
 }
