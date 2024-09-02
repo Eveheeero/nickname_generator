@@ -10,7 +10,13 @@ pub(crate) struct OpendictResult {
     datetime: time::PrimitiveDateTime,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct OpendictData {}
+pub(crate) struct OpendictData {
+    word: String,
+    definition: String,
+    code: u32,
+    r#type: String,
+    pos: String,
+}
 
 #[must_use]
 async fn search_opendict(
@@ -21,7 +27,7 @@ async fn search_opendict(
     pos: &[Pos],           // 품사
     region: &[Region],     // 방언 지역
     category: &[Category], // 전문 분야
-) -> Result<String, ()> {
+) -> Result<OpendictResult, ()> {
     // https://opendict.korean.go.kr/service/openApiInfo
 
     let pos = if pos.is_empty() {
@@ -79,7 +85,7 @@ async fn search_opendict(
     }
     let response = response.text().await.ok().ok_or(())?;
     tracing::trace!("Response from opendict: {}", response);
-    Ok(response)
+    string_to_result(response)
 }
 
 fn string_to_result(s: impl AsRef<str>) -> Result<OpendictResult, ()> {
@@ -95,7 +101,27 @@ fn string_to_result(s: impl AsRef<str>) -> Result<OpendictResult, ()> {
         datetime,
     };
     for item in json["item"].as_array().ok_or(())? {
-        result.data.push(OpendictData {});
+        let word = item["word"].as_str().ok_or(())?.to_owned();
+        let sense = &item["sense"][0];
+        if item["sense"].as_array().ok_or(())?.len() != 1 {
+            assert!(false);
+        }
+        let definition = sense["definition"].as_str().ok_or(())?.to_owned();
+        let code = sense["target_code"]
+            .as_str()
+            .ok_or(())?
+            .parse()
+            .ok()
+            .ok_or(())?;
+        let r#type = sense["type"].as_str().ok_or(())?.to_owned();
+        let pos = sense["pos"].as_str().ok_or(())?.to_owned();
+        result.data.push(OpendictData {
+            word,
+            definition,
+            code,
+            r#type,
+            pos,
+        });
     }
     Ok(result)
 }
@@ -249,12 +275,9 @@ async fn test_search() -> Result<(), Box<dyn std::error::Error>> {
 
     assert!(result.is_ok());
 
-    let result = serde_json::Value::from_str(&result.unwrap())?;
+    let result = result.unwrap();
 
-    assert_eq!(
-        result["channel"]["item"].as_array().unwrap().len(),
-        amount as usize
-    );
+    assert_eq!(result.size as usize, amount as usize);
 
     Ok(())
 }
