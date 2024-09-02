@@ -1,8 +1,10 @@
 use std::str::FromStr;
 pub(crate) mod v1;
+use serde::{Deserialize, Serialize};
 use v1::*;
 
 /// 오픈사전 검색 키
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub(crate) struct OpendictQuery {
     /// 검색 키워드
     pub(crate) keyword: String,
@@ -19,7 +21,7 @@ pub(crate) struct OpendictQuery {
 }
 
 #[must_use]
-pub(crate) async fn search_opendict(query: OpendictQuery) -> Result<OpendictResult, ()> {
+pub(crate) async fn search_opendict(query: &OpendictQuery) -> Result<OpendictResult, ()> {
     // https://opendict.korean.go.kr/service/openApiInfo
 
     let OpendictQuery {
@@ -34,7 +36,7 @@ pub(crate) async fn search_opendict(query: OpendictQuery) -> Result<OpendictResu
         "0".to_owned()
     } else {
         pos.into_iter()
-            .map(|x| format!("{}", x as u8))
+            .map(|x| format!("{}", *x as u8))
             .collect::<Vec<_>>()
             .join(",")
     };
@@ -43,7 +45,7 @@ pub(crate) async fn search_opendict(query: OpendictQuery) -> Result<OpendictResu
     } else {
         region
             .into_iter()
-            .map(|x| format!("{}", x as u8))
+            .map(|x| format!("{}", *x as u8))
             .collect::<Vec<_>>()
             .join(",")
     };
@@ -52,7 +54,7 @@ pub(crate) async fn search_opendict(query: OpendictQuery) -> Result<OpendictResu
     } else {
         category
             .into_iter()
-            .map(|x| format!("{}", x as u8))
+            .map(|x| format!("{}", *x as u8))
             .collect::<Vec<_>>()
             .join(",")
     };
@@ -136,7 +138,7 @@ fn parse_datetime(s: impl AsRef<str>) -> Result<time::PrimitiveDateTime, ()> {
 
 /// 품사
 #[repr(u8)]
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[allow(unused)]
 pub(crate) enum Pos {
     명사 = 1,
@@ -169,7 +171,7 @@ pub(crate) enum Pos {
 }
 /// 방언 지역
 #[repr(u8)]
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[allow(unused)]
 pub(crate) enum Region {
     강원 = 1,
@@ -198,7 +200,7 @@ pub(crate) enum Region {
 }
 /// 전문 분야
 #[repr(u8)]
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[allow(unused)]
 pub(crate) enum Category {
     가톨릭 = 1,
@@ -286,13 +288,41 @@ mod tests {
             category: vec![],
         };
 
-        let result = super::search_opendict(key).await;
+        let result = super::search_opendict(&key).await;
 
         assert!(result.is_ok());
-
         let result = result.unwrap();
 
         assert_eq!(result.size as usize, amount as usize);
+
+        Ok(())
+    }
+    #[tokio::test]
+    async fn test_search_and_save_and_open() -> Result<(), Box<dyn std::error::Error>> {
+        crate::prelude::init();
+
+        let amount = 100;
+        let key = super::OpendictQuery {
+            keyword: "가".to_owned(),
+            page: 1,
+            amount,
+            pos: vec![],
+            region: vec![],
+            category: vec![],
+        };
+
+        let result = super::search_opendict(&key).await;
+
+        assert!(result.is_ok());
+        let result = result.unwrap();
+
+        assert_eq!(result.size as usize, amount as usize);
+
+        crate::prelude::insert_opendict_data(&key, result.clone());
+        let queries = crate::prelude::get_opendict_saved_queries();
+        assert!(queries.contains(&key));
+        let saved_result = crate::prelude::get_opendict_data(&key);
+        assert_eq!(saved_result, Some(result));
 
         Ok(())
     }

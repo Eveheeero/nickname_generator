@@ -1,1 +1,1 @@
-mod opendict;
+pub(crate) mod opendict;

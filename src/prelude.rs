@@ -20,3 +20,33 @@ pub(crate) fn set_opendict_key(s: impl AsRef<str>) {
 fn get_opendict_tree() -> sled::Tree {
     DB.open_tree(OPENDICT_DATA_KEY).unwrap()
 }
+pub(crate) fn get_opendict_saved_queries() -> Vec<crate::data_collector::opendict::OpendictQuery> {
+    let tree = get_opendict_tree();
+    let mut queries = vec![];
+    for query in tree.iter() {
+        let (key, _) = query.unwrap();
+        let query: crate::data_collector::opendict::OpendictQuery =
+            serde_json::from_slice(&key).unwrap();
+        queries.push(query);
+    }
+    queries
+}
+pub(crate) fn insert_opendict_data(
+    query: &crate::data_collector::opendict::OpendictQuery,
+    data: crate::data_collector::opendict::v1::OpendictResult,
+) {
+    let tree = get_opendict_tree();
+    tree.insert(
+        serde_json::to_vec(query).unwrap(),
+        serde_json::to_vec(&data).unwrap(),
+    )
+    .unwrap();
+    tree.flush().unwrap();
+}
+pub(crate) fn get_opendict_data(
+    query: &crate::data_collector::opendict::OpendictQuery,
+) -> Option<crate::data_collector::opendict::v1::OpendictResult> {
+    let tree = get_opendict_tree();
+    let data = tree.get(serde_json::to_vec(query).unwrap()).unwrap();
+    data.map(|data| serde_json::from_slice(&data).unwrap())
+}
