@@ -272,28 +272,59 @@ pub(crate) enum Category {
     환경,
 }
 
+pub(crate) fn get_first_query() -> OpendictQuery {
+    OpendictQuery {
+        keyword: "가".to_owned(),
+        page: 1,
+        amount: 100,
+        pos: vec![],
+        region: vec![],
+        category: vec![],
+    }
+}
+
+/// 해당 쿼리의 다음 쿼리를 반환합니다.
+/// 해당 쿼리에 대해 검색을 수행하지 않았으면 해당 쿼리를 반환합니다.
+pub(crate) fn get_next_query(mut query: OpendictQuery) -> OpendictQuery {
+    if query.keyword.len() != 1 {
+        panic!("키워드는 한 글자여야 합니다.");
+    }
+
+    let searched = crate::prelude::get_opendict_data(&query);
+    let Some(searched) = searched else {
+        return query;
+    };
+
+    if searched.size != query.amount as u32 {
+        query.page = 1;
+        let now = query.keyword.chars().next().unwrap();
+        if now == '힣' {
+            query.keyword = "가".to_owned();
+        } else {
+            let next = now as u32 + 1;
+            query.keyword = std::char::from_u32(next).unwrap().to_string();
+        }
+        query
+    } else {
+        query.page += 1;
+        query
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[tokio::test]
     async fn test_search() -> Result<(), Box<dyn std::error::Error>> {
         crate::prelude::init();
 
-        let amount = 100;
-        let key = super::OpendictQuery {
-            keyword: "가".to_owned(),
-            page: 1,
-            amount,
-            pos: vec![],
-            region: vec![],
-            category: vec![],
-        };
+        let query = super::get_first_query();
 
-        let result = super::search_opendict(&key).await;
+        let result = super::search_opendict(&query).await;
 
         assert!(result.is_ok());
         let result = result.unwrap();
 
-        assert_eq!(result.size as usize, amount as usize);
+        assert_eq!(result.size as usize, query.amount as usize);
 
         Ok(())
     }
@@ -301,27 +332,19 @@ mod tests {
     async fn test_search_and_save_and_open() -> Result<(), Box<dyn std::error::Error>> {
         crate::prelude::init();
 
-        let amount = 100;
-        let key = super::OpendictQuery {
-            keyword: "가".to_owned(),
-            page: 1,
-            amount,
-            pos: vec![],
-            region: vec![],
-            category: vec![],
-        };
+        let query = super::get_first_query();
 
-        let result = super::search_opendict(&key).await;
+        let result = super::search_opendict(&query).await;
 
         assert!(result.is_ok());
         let result = result.unwrap();
 
-        assert_eq!(result.size as usize, amount as usize);
+        assert_eq!(result.size as usize, query.amount as usize);
 
-        crate::prelude::insert_opendict_data(&key, result.clone());
+        crate::prelude::insert_opendict_data::<false>(&query, result.clone());
         let queries = crate::prelude::get_opendict_saved_queries();
-        assert!(queries.contains(&key));
-        let saved_result = crate::prelude::get_opendict_data(&key);
+        assert!(queries.contains(&query));
+        let saved_result = crate::prelude::get_opendict_data(&query);
         assert_eq!(saved_result, Some(result));
 
         Ok(())
