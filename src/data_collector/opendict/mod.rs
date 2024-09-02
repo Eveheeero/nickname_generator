@@ -1,3 +1,17 @@
+use serde::{Deserialize, Serialize};
+use std::str::FromStr;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct OpendictResult {
+    total: u32,
+    size: u32,
+    page: u32,
+    data: Vec<OpendictData>,
+    datetime: time::PrimitiveDateTime,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct OpendictData {}
+
 #[must_use]
 async fn search_opendict(
     api_key: impl AsRef<str>,
@@ -66,6 +80,29 @@ async fn search_opendict(
     let response = response.text().await.ok().ok_or(())?;
     tracing::trace!("Response from opendict: {}", response);
     Ok(response)
+}
+
+fn string_to_result(s: impl AsRef<str>) -> Result<OpendictResult, ()> {
+    let json = serde_json::Value::from_str(s.as_ref()).ok().ok_or(())?;
+    let json = &json["channel"];
+    let datetime = json["lastbuilddate"].as_str().ok_or(())?;
+    let datetime = parse_datetime(datetime)?;
+    let mut result = OpendictResult {
+        total: json["total"].as_u64().ok_or(())? as u32,
+        size: json["num"].as_u64().ok_or(())? as u32,
+        page: json["start"].as_u64().ok_or(())? as u32,
+        data: Vec::new(),
+        datetime,
+    };
+    for item in json["item"].as_array().ok_or(())? {
+        result.data.push(OpendictData {});
+    }
+    Ok(result)
+}
+fn parse_datetime(s: impl AsRef<str>) -> Result<time::PrimitiveDateTime, ()> {
+    let format = time::macros::format_description!("[year][month][day][hour][minute][second]");
+    let result = time::PrimitiveDateTime::parse(s.as_ref(), format);
+    result.ok().ok_or(())
 }
 
 #[repr(u8)]
@@ -203,8 +240,6 @@ enum Category {
 
 #[tokio::test]
 async fn test_search() -> Result<(), Box<dyn std::error::Error>> {
-    use std::str::FromStr;
-
     crate::prelude::init();
 
     let key = std::fs::read_to_string("api_key.txt")?;
