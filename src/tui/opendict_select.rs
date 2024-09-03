@@ -3,12 +3,19 @@ use ratatui::{crossterm::event::KeyCode, prelude::*, widgets, Frame};
 
 #[derive(Debug)]
 pub(super) struct Data<'a> {
+    /// 몇번째 탭에 데이터가 있는지
     tab_cursor: u8,
+    /// 검색된 단어 목록
     keyword: widgets::List<'a>,
+    /// 선택된 단어 목록
     keyword_selected: widgets::ListState,
-    opendict_select_page_list: Option<Vec<u16>>,
+
+    page_origin: Option<Vec<u16>>,
+    /// 몇번째 페이지를 선택했는지
     page: Option<widgets::List<'a>>,
+    /// 선택된 페이지 목록
     page_selected: widgets::ListState,
+    /// 상세 내용
     detail: Option<crate::data_collector::opendict::v1::OpendictResult>,
 }
 
@@ -24,14 +31,14 @@ impl<'a> Data<'a> {
             tab_cursor: 0,
             keyword: opendict_select_word,
             keyword_selected: widgets::ListState::default(),
-            opendict_select_page_list: None,
+            page_origin: None,
             page: None,
             page_selected: widgets::ListState::default(),
             detail: None,
         }
     }
     fn clear_page_list(&mut self) {
-        self.opendict_select_page_list.take();
+        self.page_origin.take();
         self.page.take();
         self.page_selected.select(None);
     }
@@ -69,25 +76,25 @@ pub(super) fn draw(frame: &mut Frame, mut area: Rect, parent_ctx: &mut TuiContex
         ctx.page = Some(
             pages
                 .iter()
-                .map(|page| format!("{:03}페이지", page))
+                .map(|page| format!("{:04}페이지", page))
                 .collect::<widgets::List>()
                 .block(widgets::Block::bordered())
                 .highlight_style(Style::default().yellow()),
         );
-        ctx.opendict_select_page_list = Some(pages);
+        ctx.page_origin = Some(pages);
     }
 
     if ctx.keyword_selected.selected().is_some() {
         let list_area = Rect {
             x: area.x,
             y: area.y,
-            width: 11,
+            width: 12,
             height: area.height,
         };
         area = Rect {
-            x: area.x + 12,
+            x: area.x + 13,
             y: area.y,
-            width: area.width - 12,
+            width: area.width - 13,
             height: area.height,
         };
         frame.render_stateful_widget(
@@ -106,6 +113,38 @@ pub(super) fn draw(frame: &mut Frame, mut area: Rect, parent_ctx: &mut TuiContex
 
 pub(super) fn pressed_event(parent_ctx: &mut TuiContext, pressed: KeyCode) {
     let ctx = &mut parent_ctx.opendict_select;
+    let set_detail_if_can = |ctx: &mut Data| {
+        /* 최대값을 벗어났으면 설정 */
+        ctx.keyword_selected.selected().inspect(|i| {
+            if *i >= ctx.keyword.len() {
+                ctx.keyword_selected.select(Some(ctx.keyword.len() - 1));
+            }
+        });
+        ctx.page_selected.selected().inspect(|i| {
+            if *i >= ctx.page.as_ref().unwrap().len() {
+                ctx.page_selected
+                    .select(Some(ctx.page.as_ref().unwrap().len() - 1));
+            }
+        });
+
+        let selected_word = ctx.keyword_selected.selected();
+        let selected_page = ctx.page_selected.selected();
+
+        if let (Some(selected_word), Some(selected_page)) = (selected_word, selected_page) {
+            let selected_word = parent_ctx
+                .opendict_searched_word
+                .get(selected_word)
+                .unwrap();
+            let selected_page = ctx.page_origin.as_ref().unwrap()[selected_page];
+            let query = parent_ctx
+                .opendict_searched
+                .iter()
+                .find(|query| query.keyword == *selected_word && query.page == selected_page)
+                .unwrap();
+            let data = crate::prelude::get_opendict_data(query);
+            ctx.detail = data;
+        }
+    };
     match pressed {
         KeyCode::Right => {
             if ctx.tab_cursor < 2 {
@@ -121,9 +160,11 @@ pub(super) fn pressed_event(parent_ctx: &mut TuiContext, pressed: KeyCode) {
             0 => {
                 ctx.keyword_selected.select_next();
                 ctx.clear_page_list();
+                set_detail_if_can(ctx);
             }
             1 => {
                 ctx.page_selected.select_next();
+                set_detail_if_can(ctx);
             }
             2 => {}
             _ => unreachable!(),
@@ -132,9 +173,11 @@ pub(super) fn pressed_event(parent_ctx: &mut TuiContext, pressed: KeyCode) {
             0 => {
                 ctx.keyword_selected.select_previous();
                 ctx.clear_page_list();
+                set_detail_if_can(ctx);
             }
             1 => {
                 ctx.page_selected.select_previous();
+                set_detail_if_can(ctx);
             }
             2 => {}
             _ => unreachable!(),
@@ -147,11 +190,13 @@ pub(super) fn pressed_event(parent_ctx: &mut TuiContext, pressed: KeyCode) {
                         ctx.keyword_selected.select_next();
                     }
                     ctx.clear_page_list();
+                    set_detail_if_can(ctx);
                 }
                 1 => {
                     for _ in 0..repeat_count {
                         ctx.page_selected.select_next();
                     }
+                    set_detail_if_can(ctx);
                 }
                 2 => {}
                 _ => unreachable!(),
@@ -165,11 +210,13 @@ pub(super) fn pressed_event(parent_ctx: &mut TuiContext, pressed: KeyCode) {
                         ctx.keyword_selected.select_previous();
                     }
                     ctx.clear_page_list();
+                    set_detail_if_can(ctx);
                 }
                 1 => {
                     for _ in 0..repeat_count {
                         ctx.page_selected.select_previous();
                     }
+                    set_detail_if_can(ctx);
                 }
                 2 => {}
                 _ => unreachable!(),
@@ -179,9 +226,11 @@ pub(super) fn pressed_event(parent_ctx: &mut TuiContext, pressed: KeyCode) {
             0 => {
                 ctx.keyword_selected.select_first();
                 ctx.clear_page_list();
+                set_detail_if_can(ctx);
             }
             1 => {
                 ctx.page_selected.select_first();
+                set_detail_if_can(ctx);
             }
             2 => {}
             _ => unreachable!(),
@@ -190,31 +239,15 @@ pub(super) fn pressed_event(parent_ctx: &mut TuiContext, pressed: KeyCode) {
             0 => {
                 ctx.keyword_selected.select_last();
                 ctx.clear_page_list();
+                set_detail_if_can(ctx);
             }
             1 => {
                 ctx.page_selected.select_last();
+                set_detail_if_can(ctx);
             }
             2 => {}
             _ => unreachable!(),
         },
-        KeyCode::Enter => {
-            let selected_word = ctx.keyword_selected.selected();
-            let selected_page = ctx.page_selected.selected();
-            if let (Some(selected_word), Some(selected_page)) = (selected_word, selected_page) {
-                let selected_word = parent_ctx
-                    .opendict_searched_word
-                    .get(selected_word)
-                    .unwrap();
-                let selected_page = ctx.opendict_select_page_list.as_ref().unwrap()[selected_page];
-                let query = parent_ctx
-                    .opendict_searched
-                    .iter()
-                    .find(|query| query.keyword == *selected_word && query.page == selected_page)
-                    .unwrap();
-                let data = crate::prelude::get_opendict_data(query);
-                ctx.detail = data;
-            }
-        }
         _ => {}
     }
 }
