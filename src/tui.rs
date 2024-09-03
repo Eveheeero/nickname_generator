@@ -139,6 +139,28 @@ pub(super) fn main() -> Result<(), Box<dyn std::error::Error>> {
                             _ => unreachable!(),
                         }
                     }
+                    KeyCode::Home => match ctx.opendict_select_cursor {
+                        0 => {
+                            ctx.opendict_select_word_selected.select_first();
+                            ctx.clear_page_list();
+                        }
+                        1 => {
+                            ctx.opendict_select_page_selected.select_first();
+                        }
+                        2 => {}
+                        _ => unreachable!(),
+                    },
+                    KeyCode::End => match ctx.opendict_select_cursor {
+                        0 => {
+                            ctx.opendict_select_word_selected.select_last();
+                            ctx.clear_page_list();
+                        }
+                        1 => {
+                            ctx.opendict_select_page_selected.select_last();
+                        }
+                        2 => {}
+                        _ => unreachable!(),
+                    },
                     KeyCode::Enter => {
                         let selected_word = ctx.opendict_select_word_selected.selected();
                         let selected_page = ctx.opendict_select_page_selected.selected();
@@ -242,12 +264,16 @@ fn opendict_select(frame: &mut Frame, mut area: Rect, ctx: &mut TuiContext) {
 impl<'a> Default for TuiContext<'a> {
     fn default() -> Self {
         let opendict_searched = crate::prelude::get_opendict_saved_queries();
-        let opendict_searched_word = opendict_searched
+        let mut opendict_searched_word = opendict_searched
             .iter()
             .map(|query| query.keyword.clone())
             .collect::<HashSet<_>>()
             .into_iter()
             .collect::<Vec<_>>();
+        debug_assert!(opendict_searched_word
+            .iter()
+            .all(|x| x.chars().count() == 1));
+        opendict_searched_word.sort_by_cached_key(|x| x.chars().next().unwrap() as u32);
         let opendict_select_word = opendict_searched_word
             .iter()
             .cloned()
