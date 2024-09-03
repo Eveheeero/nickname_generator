@@ -21,7 +21,9 @@ pub(crate) struct OpendictQuery {
 }
 
 #[must_use]
-pub(crate) async fn search_opendict(query: &OpendictQuery) -> Result<OpendictResult, ()> {
+pub(crate) async fn search_opendict(
+    query: &OpendictQuery,
+) -> Result<(OpendictResult, Vec<OpendictData>), ()> {
     // https://opendict.korean.go.kr/service/openApiInfo
 
     tracing::info!("\"{}\" {}페이지 검색중", query.keyword, query.page);
@@ -94,7 +96,7 @@ pub(crate) async fn search_opendict(query: &OpendictQuery) -> Result<OpendictRes
     string_to_result(response)
 }
 
-fn string_to_result(s: impl AsRef<str>) -> Result<OpendictResult, ()> {
+fn string_to_result(s: impl AsRef<str>) -> Result<(OpendictResult, Vec<OpendictData>), ()> {
     let json = serde_json::Value::from_str(s.as_ref()).ok().ok_or(())?;
     let json = &json["channel"];
     let datetime = json["lastbuilddate"].as_str().ok_or(())?;
@@ -103,9 +105,10 @@ fn string_to_result(s: impl AsRef<str>) -> Result<OpendictResult, ()> {
         total: json["total"].as_u64().ok_or(())? as u32,
         size: json["num"].as_u64().ok_or(())? as u32,
         page: json["start"].as_u64().ok_or(())? as u32,
-        data: Vec::new(),
+        data_index: Vec::new(),
         datetime,
     };
+    let mut items = Vec::new();
     for item in json["item"].as_array().ok_or(())? {
         let word = item["word"].as_str().ok_or(())?.to_owned();
         let sense = &item["sense"][0];
@@ -143,7 +146,7 @@ fn string_to_result(s: impl AsRef<str>) -> Result<OpendictResult, ()> {
             }
         }
 
-        result.data.push(OpendictData {
+        items.push(OpendictData {
             syntactic_annotation,
             syntactic_argument,
             word,
@@ -153,8 +156,9 @@ fn string_to_result(s: impl AsRef<str>) -> Result<OpendictResult, ()> {
             pos,
             origin,
         });
+        result.data_index.push(code);
     }
-    Ok(result)
+    Ok((result, items))
 }
 fn parse_datetime(s: impl AsRef<str>) -> Result<time::PrimitiveDateTime, ()> {
     let format = time::macros::format_description!("[year][month][day][hour][minute][second]");
@@ -360,9 +364,10 @@ mod tests {
         let result = super::search_opendict(&query).await;
 
         assert!(result.is_ok());
-        let result = result.unwrap();
+        let (result, items) = result.unwrap();
 
         assert_eq!(result.size as usize, query.amount as usize);
+        assert_eq!(items.len(), query.amount as usize);
 
         Ok(())
     }
@@ -375,15 +380,22 @@ mod tests {
         let result = super::search_opendict(&query).await;
 
         assert!(result.is_ok());
-        let result = result.unwrap();
+        let (result, items) = result.unwrap();
 
         assert_eq!(result.size as usize, query.amount as usize);
+        assert_eq!(items.len(), query.amount as usize);
 
         crate::prelude::insert_opendict_data::<false>(&query, result.clone());
         let queries = crate::prelude::get_opendict_saved_queries();
         assert!(queries.contains(&query));
         let saved_result = crate::prelude::get_opendict_data(&query);
         assert_eq!(saved_result, Some(result));
+
+        for item in items {
+            crate::prelude::insert_opendict_item(&item);
+            let inserted = crate::prelude::get_opendict_item(item.code);
+            assert_eq!(inserted, Some(item));
+        }
 
         Ok(())
     }

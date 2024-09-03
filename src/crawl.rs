@@ -11,8 +11,11 @@ pub(super) async fn main() {
     let mut failed_count = 0;
     loop {
         let data = crate::data_collector::opendict::search_opendict(&query).await;
-        if let Ok(data) = data {
+        if let Ok((data, items)) = data {
             crate::prelude::insert_opendict_data::<true>(&query, data);
+            for item in items {
+                crate::prelude::insert_opendict_item(&item);
+            }
             query = crate::data_collector::opendict::get_next_query(query);
             failed_count = 0;
         } else {

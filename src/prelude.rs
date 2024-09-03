@@ -1,3 +1,5 @@
+use std::io::Read;
+
 use once_cell::sync::Lazy;
 
 pub(crate) static DB: Lazy<sled::Db> = Lazy::new(|| sled::open(".nickname_generator").unwrap());
@@ -101,4 +103,15 @@ pub(crate) fn insert_opendict_item(data: &crate::data_collector::opendict::v1::O
     )
     .unwrap();
     tree.flush().unwrap();
+}
+pub(crate) fn get_opendict_item_codes() -> Vec<u32> {
+    let tree = get_opendict_item_tree();
+    let mut codes = vec![];
+    for code in tree.iter() {
+        let (key, _) = code.unwrap();
+        let key = key.bytes().collect::<Result<Vec<_>, _>>().unwrap();
+        let code = u32::from_be_bytes(key.try_into().unwrap());
+        codes.push(code);
+    }
+    codes
 }
