@@ -5,7 +5,7 @@ pub(crate) struct OpendictResult {
     pub(crate) total: u32,
     pub(crate) size: u32,
     pub(crate) page: u32,
-    pub(crate) data: Vec<OpendictData>,
+    pub(crate) data_index: Vec<u32>,
     pub(crate) datetime: time::PrimitiveDateTime,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

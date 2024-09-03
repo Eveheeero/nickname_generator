@@ -3,6 +3,7 @@ use once_cell::sync::Lazy;
 pub(crate) static DB: Lazy<sled::Db> = Lazy::new(|| sled::open(".nickname_generator").unwrap());
 const OPENDICT_KEY: &str = "opendict_key";
 const OPENDICT_DATA_KEY: &str = "opendict_data";
+const OPENDICT_ITEM: &str = "opendict_item";
 const OPENDICT_LAST_INSERTED: &str = "opendict_last_inserted";
 
 pub(crate) fn init() {
@@ -20,6 +21,9 @@ pub(crate) fn set_opendict_key(s: impl AsRef<str>) {
 }
 fn get_opendict_tree() -> sled::Tree {
     DB.open_tree(OPENDICT_DATA_KEY).unwrap()
+}
+fn get_opendict_item_tree() -> sled::Tree {
+    DB.open_tree(OPENDICT_ITEM).unwrap()
 }
 pub(crate) fn get_opendict_saved_queries() -> Vec<crate::data_collector::opendict::OpendictQuery> {
     let tree = get_opendict_tree();
@@ -80,4 +84,21 @@ pub(crate) fn set_opendict_last_inserted(query: &crate::data_collector::opendict
     DB.insert(OPENDICT_LAST_INSERTED, serde_json::to_vec(query).unwrap())
         .unwrap();
     DB.flush().unwrap();
+}
+pub(crate) fn get_opendict_item(
+    code: u32,
+) -> Option<crate::data_collector::opendict::v1::OpendictData> {
+    let tree = get_opendict_item_tree();
+    let data = tree.get(code.to_be_bytes()).unwrap();
+    data.map(|data| gzip_decompress(&data))
+        .map(|data| serde_json::from_slice(&data).unwrap())
+}
+pub(crate) fn insert_opendict_item(data: &crate::data_collector::opendict::v1::OpendictData) {
+    let tree = get_opendict_item_tree();
+    tree.insert(
+        data.code.to_be_bytes(),
+        gzip_compress(&serde_json::to_vec(data).unwrap()),
+    )
+    .unwrap();
+    tree.flush().unwrap();
 }
