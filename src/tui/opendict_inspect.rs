@@ -30,6 +30,11 @@ impl<'a> Data<'a> {
         };
         self.item_codes_inputted = opendict_item_codes[selected].to_string();
     }
+    fn selected_with_num(&mut self, opendict_item_codes: &Vec<u32>) {
+        let data: u32 = self.item_codes_inputted.parse().unwrap();
+        let selected = opendict_item_codes.iter().position(|&x| x == data);
+        self.item_codes_selected.select(selected);
+    }
     fn select_if_can(&mut self) {
         self.item_data.clear();
         let Ok(code) = self.item_codes_inputted.parse::<u32>() else {
@@ -126,11 +131,13 @@ pub(super) fn pressed_event(parent_ctx: &mut TuiContext, pressed: KeyCode) {
             let is_num = c.is_numeric();
             if is_num {
                 ctx.item_codes_inputted.push(c);
+                ctx.selected_with_num(opendict_item_codes);
                 ctx.select_if_can();
             }
         }
         KeyCode::Backspace => {
             ctx.item_codes_inputted.pop();
+            ctx.selected_with_num(opendict_item_codes);
             ctx.select_if_can();
         }
         _ => {}
