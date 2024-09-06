@@ -30,13 +30,13 @@ pub(super) fn draw(frame: &mut Frame, mut area: Rect, parent_ctx: &mut TuiContex
     let list_area = Rect {
         x: area.x,
         y: area.y,
-        width: 8,
+        width: 9,
         height: area.height,
     };
     area = Rect {
-        x: area.x + 9,
+        x: area.x + 10,
         y: area.y,
-        width: area.width - 9,
+        width: area.width - 10,
         height: area.height,
     };
     frame.render_stateful_widget(&ctx.item_codes, list_area, &mut ctx.item_codes_selected);
