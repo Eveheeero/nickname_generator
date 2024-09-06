@@ -21,7 +21,7 @@ pub(super) struct Data<'a> {
 
 impl<'a> Data<'a> {
     pub(super) fn new(opendict_searched_word: &Vec<String>) -> Self {
-        let opendict_select_word = opendict_searched_word
+        let opendict_query_word = opendict_searched_word
             .iter()
             .cloned()
             .collect::<widgets::List>()
@@ -29,7 +29,7 @@ impl<'a> Data<'a> {
             .highlight_style(Style::default().yellow());
         Self {
             tab_cursor: 0,
-            keyword: opendict_select_word,
+            keyword: opendict_query_word,
             keyword_selected: widgets::ListState::default(),
             page_origin: None,
             page: None,
@@ -45,7 +45,7 @@ impl<'a> Data<'a> {
 }
 
 pub(super) fn draw(frame: &mut Frame, mut area: Rect, parent_ctx: &mut TuiContext) {
-    let ctx = &mut parent_ctx.opendict_select;
+    let ctx = &mut parent_ctx.opendict_query;
     let list_area = Rect {
         x: area.x,
         y: area.y,
@@ -98,13 +98,13 @@ pub(super) fn draw(frame: &mut Frame, mut area: Rect, parent_ctx: &mut TuiContex
             height: area.height,
         };
         frame.render_stateful_widget(
-            parent_ctx.opendict_select.page.as_ref().unwrap(),
+            parent_ctx.opendict_query.page.as_ref().unwrap(),
             list_area,
-            &mut parent_ctx.opendict_select.page_selected,
+            &mut parent_ctx.opendict_query.page_selected,
         );
     }
 
-    if let Some(data) = &parent_ctx.opendict_select.detail {
+    if let Some(data) = &parent_ctx.opendict_query.detail {
         let data = format!("{:#?}", data);
         let data = widgets::Paragraph::new(data).block(widgets::Block::bordered());
         frame.render_widget(data, area);
@@ -112,7 +112,8 @@ pub(super) fn draw(frame: &mut Frame, mut area: Rect, parent_ctx: &mut TuiContex
 }
 
 pub(super) fn pressed_event(parent_ctx: &mut TuiContext, pressed: KeyCode) {
-    let ctx = &mut parent_ctx.opendict_select;
+    let ctx = &mut parent_ctx.opendict_query;
+    const REPEAT_COUNT: i32 = 5;
     let set_detail_if_can = |ctx: &mut Data| {
         /* 최대값을 벗어났으면 설정 */
         ctx.keyword_selected.selected().inspect(|i| {
@@ -182,46 +183,40 @@ pub(super) fn pressed_event(parent_ctx: &mut TuiContext, pressed: KeyCode) {
             2 => {}
             _ => unreachable!(),
         },
-        KeyCode::PageDown => {
-            let repeat_count = 5;
-            match ctx.tab_cursor {
-                0 => {
-                    for _ in 0..repeat_count {
-                        ctx.keyword_selected.select_next();
-                    }
-                    ctx.clear_page_list();
-                    set_detail_if_can(ctx);
+        KeyCode::PageDown => match ctx.tab_cursor {
+            0 => {
+                for _ in 0..REPEAT_COUNT {
+                    ctx.keyword_selected.select_next();
                 }
-                1 => {
-                    for _ in 0..repeat_count {
-                        ctx.page_selected.select_next();
-                    }
-                    set_detail_if_can(ctx);
-                }
-                2 => {}
-                _ => unreachable!(),
+                ctx.clear_page_list();
+                set_detail_if_can(ctx);
             }
-        }
-        KeyCode::PageUp => {
-            let repeat_count = 5;
-            match ctx.tab_cursor {
-                0 => {
-                    for _ in 0..repeat_count {
-                        ctx.keyword_selected.select_previous();
-                    }
-                    ctx.clear_page_list();
-                    set_detail_if_can(ctx);
+            1 => {
+                for _ in 0..REPEAT_COUNT {
+                    ctx.page_selected.select_next();
                 }
-                1 => {
-                    for _ in 0..repeat_count {
-                        ctx.page_selected.select_previous();
-                    }
-                    set_detail_if_can(ctx);
-                }
-                2 => {}
-                _ => unreachable!(),
+                set_detail_if_can(ctx);
             }
-        }
+            2 => {}
+            _ => unreachable!(),
+        },
+        KeyCode::PageUp => match ctx.tab_cursor {
+            0 => {
+                for _ in 0..REPEAT_COUNT {
+                    ctx.keyword_selected.select_previous();
+                }
+                ctx.clear_page_list();
+                set_detail_if_can(ctx);
+            }
+            1 => {
+                for _ in 0..REPEAT_COUNT {
+                    ctx.page_selected.select_previous();
+                }
+                set_detail_if_can(ctx);
+            }
+            2 => {}
+            _ => unreachable!(),
+        },
         KeyCode::Home => match ctx.tab_cursor {
             0 => {
                 ctx.keyword_selected.select_first();

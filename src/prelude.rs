@@ -1,4 +1,4 @@
-use std::io::Read;
+use std::{collections::HashSet, io::Read};
 
 use once_cell::sync::Lazy;
 
@@ -104,14 +104,14 @@ pub(crate) fn insert_opendict_item(data: &crate::data_collector::opendict::v1::O
     .unwrap();
     tree.flush().unwrap();
 }
-pub(crate) fn get_opendict_item_codes() -> Vec<u32> {
+pub(crate) fn get_opendict_item_codes() -> HashSet<u32> {
     let tree = get_opendict_item_tree();
-    let mut codes = vec![];
+    let mut codes = HashSet::new();
     for code in tree.iter() {
         let (key, _) = code.unwrap();
         let key = key.bytes().collect::<Result<Vec<_>, _>>().unwrap();
         let code = u32::from_be_bytes(key.try_into().unwrap());
-        codes.push(code);
+        codes.insert(code);
     }
     codes
 }
