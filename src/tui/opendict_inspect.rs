@@ -31,7 +31,9 @@ impl<'a> Data<'a> {
         self.item_codes_inputted = opendict_item_codes[selected].to_string();
     }
     fn selected_with_num(&mut self, opendict_item_codes: &Vec<u32>) {
-        let data: u32 = self.item_codes_inputted.parse().unwrap();
+        let Ok(data): Result<u32, _> = self.item_codes_inputted.parse() else {
+            return;
+        };
         let selected = opendict_item_codes.iter().position(|&x| x == data);
         self.item_codes_selected.select(selected);
     }
@@ -128,7 +130,7 @@ pub(super) fn pressed_event(parent_ctx: &mut TuiContext, pressed: KeyCode) {
             ctx.select_if_can();
         }
         KeyCode::Char(c) => {
-            let is_num = c.is_numeric();
+            let is_num = c.is_ascii_digit();
             if is_num {
                 ctx.item_codes_inputted.push(c);
                 ctx.selected_with_num(opendict_item_codes);
