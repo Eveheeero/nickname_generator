@@ -141,7 +141,7 @@ pub(super) fn pressed_event(parent_ctx: &mut TuiContext, pressed: KeyCode) {
             let query = parent_ctx
                 .opendict_searched
                 .par_iter()
-                .find(|query| query.keyword == *selected_word && query.page == selected_page)
+                .find_any(|query| query.keyword == *selected_word && query.page == selected_page)
                 .unwrap();
             let data = crate::prelude::get_opendict_data(query);
             ctx.detail = data;
