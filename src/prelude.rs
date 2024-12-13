@@ -1,6 +1,5 @@
-use std::{collections::HashSet, io::Read};
-
 use once_cell::sync::Lazy;
+use std::{collections::HashSet, io::Read};
 
 pub(crate) static DB: Lazy<sled::Db> = Lazy::new(|| sled::open(".nickname_generator").unwrap());
 const OPENDICT_KEY: &str = "opendict_key";

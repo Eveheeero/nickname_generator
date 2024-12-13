@@ -1,5 +1,6 @@
 use crate::tui::TuiContext;
 use ratatui::{crossterm::event::KeyCode, prelude::*, widgets, Frame};
+use rayon::prelude::*;
 
 #[derive(Debug)]
 pub(super) struct Data<'a> {
@@ -68,7 +69,7 @@ pub(super) fn draw(frame: &mut Frame, mut area: Rect, parent_ctx: &mut TuiContex
             .unwrap();
         let mut pages = parent_ctx
             .opendict_searched
-            .iter()
+            .par_iter()
             .filter(|query| query.keyword == *selected_word)
             .map(|x| x.page)
             .collect::<Vec<_>>();
@@ -139,7 +140,7 @@ pub(super) fn pressed_event(parent_ctx: &mut TuiContext, pressed: KeyCode) {
             let selected_page = ctx.page_origin.as_ref().unwrap()[selected_page];
             let query = parent_ctx
                 .opendict_searched
-                .iter()
+                .par_iter()
                 .find(|query| query.keyword == *selected_word && query.page == selected_page)
                 .unwrap();
             let data = crate::prelude::get_opendict_data(query);

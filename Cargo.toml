@@ -16,3 +16,4 @@ time = { version = "0.3.36", features = ["formatting", "macros", "parsing", "ser
 clap = "4.5.16"
 flate2 = "1.0.33"
 ratatui = "0.28.1"
+rayon = "1.10.0"
