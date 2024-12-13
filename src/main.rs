@@ -4,6 +4,7 @@ pub(crate) mod generator;
 mod generator_main;
 mod init;
 pub(crate) mod prelude;
+mod reform;
 mod tui;
 use clap::Command;
 
@@ -13,6 +14,7 @@ async fn main() {
         .about("Nickname Generator")
         .subcommand(Command::new("init").about("Init Api Key"))
         .subcommand(Command::new("crawl").about("Crawl Dictionary"))
+        .subcommand(Command::new("reform").about("Reform Data"))
         .subcommand(
             Command::new("generator")
                 .about("Nickname Generator")
@@ -24,6 +26,7 @@ async fn main() {
     match arg.subcommand() {
         Some(("init", _)) => init::main().await,
         Some(("crawl", _)) => crawl::main().await,
+        Some(("reform", _)) => reform::reform().await,
         Some(("generator", extra)) => {
             if extra.subcommand().is_none() {
                 generator_main::main().await;
