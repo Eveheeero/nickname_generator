@@ -168,7 +168,7 @@ fn parse_datetime(s: impl AsRef<str>) -> Result<time::PrimitiveDateTime, ()> {
 
 /// 품사
 #[repr(u8)]
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[allow(unused)]
 pub(crate) enum Pos {
     명사 = 1,
